@@ -1,54 +1,60 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+import React from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function NetworkStatus() {
-    const [isOnline, setIsOnline] = useState(false);
+import { useNetwork } from '../../context/NetworkContext';
 
-    useEffect(() => {
-        // Получаем начальное состояние сети
-        const unsubscribe = NetInfo.addEventListener(state => {
-            setIsOnline(
-                state.isConnected === true &&
-                state.isInternetReachable !== false
-            );
-        });
+// Компактний індикатор стану: Офлайн / Синхронізація / Не синхронізовано: N.
+// Коли все відправлено і зв'язок є, нічого не показує.
+// Натискання на «Не синхронізовано» запускає синхронізацію вручну
+export default function OfflineBanner() {
+    const { isOnline, pendingCount, syncing, syncNow } = useNetwork();
 
-        return () => unsubscribe();
-    }, []);
+    if (isOnline && pendingCount === 0 && !syncing) {
+        return null;
+    }
+
+    let label;
+    if (syncing) {
+        label = 'Синхронізація...';
+    } else if (!isOnline) {
+        label = pendingCount > 0 ? `Офлайн · не синхр.: ${pendingCount}` : 'Офлайн';
+    } else {
+        label = `Не синхронізовано: ${pendingCount}`;
+    }
 
     return (
-        <View style={styles.container}>
-            <Text style={{ color: isOnline ? '#22C55E' : '#EF4444', marginRight: 10, fontSize:16 }}>
-                {
-                    isOnline ? "Online" : "Offline"
-                }
-            </Text>
-            <View
-                style={[
-                    styles.indicator,
-                    { backgroundColor: isOnline ? '#22C55E' : '#EF4444' }
-                ]}
-            />
-        </View>
+        <Pressable
+            style={styles.banner}
+            onPress={syncNow}
+            disabled={!isOnline || syncing}
+        >
+            {syncing ? (
+                <ActivityIndicator size="small" color="#b26a00" />
+            ) : (
+                <Ionicons
+                    name={isOnline ? 'cloud-upload-outline' : 'cloud-offline-outline'}
+                    size={14}
+                    color="#b26a00"
+                />
+            )}
+            <Text style={styles.text}>{label}</Text>
+        </Pressable>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    banner: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20
+        backgroundColor: '#ffe9c2',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
     },
-
-    indicator: {
-        width: 15,
-        height: 15,
-        borderRadius: 50,
-    },
-
     text: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 12,
+        color: '#b26a00',
+        marginLeft: 5,
     },
 });

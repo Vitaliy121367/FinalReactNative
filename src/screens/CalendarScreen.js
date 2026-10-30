@@ -1,13 +1,13 @@
-import React, {useCallback, useContext, useEffect, useMemo, useState} from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import AppContext from '../context';
 import { loadDays } from '../tools/api/offensesData';
-import Header from "../components/Header";
-import NetworkStatus from "../components/OfflineBanner";
-import {getLastOpenedMonth, saveLastOpenedMonth, saveOffense} from "../tools/database/database";
+import { useNetwork } from '../context/NetworkContext';
+import Header from '../components/Header';
+import NetworkStatus from '../components/OfflineBanner';
 
 const MONTHS = [
     'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
@@ -15,12 +15,11 @@ const MONTHS = [
 ];
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 
-const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
-
 const pad = (n) => String(n).padStart(2, '0');
 
 export default function CalendarScreen({ navigation }) {
     const { theme } = useContext(AppContext);
+    const { syncVersion } = useNetwork();
     const isLight = theme === 'light';
 
     const colors = {
@@ -28,15 +27,14 @@ export default function CalendarScreen({ navigation }) {
         text: isLight ? '#000000' : '#ffffff',
         muted: isLight ? '#888888' : '#999999',
         accent: isLight ? '#2196F3' : '#904ee3',
+        today: '#ff9800', // сьогодні: окремий колір, щоб не плутати з днями з правопорушеннями
     };
 
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-    // Єдине джерело правди про відкритий місяць: year + month
     const [year, setYear] = useState(now.getFullYear());
     const [month, setMonth] = useState(now.getMonth()); // 0–11
-    const [restored, setRestored] = useState(false);    // true, коли прочитано збережений місяць
     const [markedDays, setMarkedDays] = useState(new Set());
     const [loading, setLoading] = useState(true);
     const [offline, setOffline] = useState(false);
@@ -44,48 +42,10 @@ export default function CalendarScreen({ navigation }) {
 
     const monthKey = `${year}-${pad(month + 1)}`;
 
-    // Відновлюємо останній відкритий місяць при запуску
-    useEffect(() => {
-        let active = true;
-
-        const restoreMonth = async () => {
-            try {
-                const saved = await getLastOpenedMonth();
-
-                if (active && saved && MONTH_REGEX.test(saved)) {
-                    const [y, m] = saved.split('-').map(Number);
-                    setYear(y);
-                    setMonth(m - 1);
-                }
-            } catch (e) {
-                console.error('Error restoring last opened month:', e);
-            } finally {
-                if (active) setRestored(true);
-            }
-        };
-        restoreMonth();
-
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    // Запам'ятовуємо місяць щоразу, коли користувач його змінює
-    useEffect(() => {
-        if (!restored) return;
-
-        saveLastOpenedMonth(monthKey).catch((e) =>
-            console.error('Error saving last opened month:', e)
-        );
-    }, [restored, monthKey]);
-
     // Перезавантажуємо дні при зміні місяця і щоразу, коли екран знову в фокусі
     // (наприклад, після додавання правопорушення або синхронізації)
     useFocusEffect(
         useCallback(() => {
-            // Чекаємо, поки відновиться збережений місяць, щоб не робити зайвий запит
-            if (!restored) return;
-
             let cancelled = false;
             setLoading(true);
 
@@ -108,7 +68,7 @@ export default function CalendarScreen({ navigation }) {
             return () => {
                 cancelled = true;
             };
-        }, [monthKey, restored])
+        }, [monthKey, syncVersion])
     );
 
     const goPrev = () => {
@@ -145,15 +105,18 @@ export default function CalendarScreen({ navigation }) {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                width: "100%"
-            }}>
+            <View
+                style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                }}
+            >
                 <Header />
                 <NetworkStatus />
             </View>
+
             <View style={styles.monthRow}>
                 <Pressable onPress={goPrev} hitSlop={12}>
                     <Ionicons name="chevron-back" size={26} color={colors.text} />
@@ -191,18 +154,21 @@ export default function CalendarScreen({ navigation }) {
                             <Pressable
                                 key={dayIndex}
                                 style={styles.cell}
+                                disabled={!marked}
                                 onPress={() => navigation.navigate('DayOffenses', { date: dateStr })}
                             >
                                 <View
                                     style={[
                                         styles.dayCircle,
                                         marked && { backgroundColor: colors.accent },
-                                        isToday && { borderRadius: 100, borderWidth: 2, borderColor: colors.accent },
+                                        // Сьогодні без записів: заливка; з записами: заливка акценту + обідок
+                                        isToday && !marked && { backgroundColor: colors.today },
+                                        isToday && marked && { borderWidth: 3, borderColor: colors.today },
                                     ]}
                                 >
                                     <Text
                                         style={{
-                                            color: marked ? '#ffffff' : colors.text,
+                                            color: marked || isToday ? '#ffffff' : colors.text,
                                             fontWeight: marked || isToday ? 'bold' : 'normal',
                                         }}
                                     >
@@ -222,7 +188,7 @@ export default function CalendarScreen({ navigation }) {
                     <Text style={styles.error}>{error}</Text>
                 ) : (
                     <Text style={[styles.hint, { color: colors.muted }]}>
-                        Дні з правопорушеннями позначені кольором. Натисніть на день, щоб переглянути
+                        Дні з правопорушеннями позначені кольором. Сьогодні виділено оранжевим
                     </Text>
                 )}
 

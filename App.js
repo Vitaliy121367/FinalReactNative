@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppContext from './src/context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import {NetworkProvider} from "./src/context/NetworkContext";
 
 const CustomLightTheme = {
   ...DefaultTheme,
@@ -124,7 +125,9 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AppContext.Provider value={themeValue}>
           <AuthProvider>
-            <AppContent />
+            <NetworkProvider>
+              <AppContent />
+            </NetworkProvider>
           </AuthProvider>
         </AppContext.Provider>
       </GestureHandlerRootView>

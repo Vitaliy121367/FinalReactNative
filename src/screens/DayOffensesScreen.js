@@ -5,10 +5,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import AppContext from '../context';
 import OffenseCard, { offenseKey } from '../components/OffenseCard';
 import { loadOffensesByDate } from '../tools/api/offensesData';
+import { useNetwork } from '../context/NetworkContext';
 
 export default function DayOffensesScreen({ route, navigation }) {
     const { date } = route.params;
     const { theme } = useContext(AppContext);
+    const { syncVersion } = useNetwork();
     const isLight = theme === 'light';
 
     const colors = {
@@ -44,7 +46,7 @@ export default function DayOffensesScreen({ route, navigation }) {
             return () => {
                 active = false;
             };
-        }, [load])
+        }, [load, syncVersion])
     );
 
     const handleRefresh = async () => {

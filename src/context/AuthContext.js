@@ -6,15 +6,11 @@ import React, {
     useMemo,
     useState,
 } from 'react';
+
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Запити до сервера: src/tools/api/auth.js
-//   loginRequest(email, password)  -> { token, user }
-//   registerRequest(data)          -> { user }
 import { loginRequest, registerRequest } from '../tools/api/auth';
-
-// Обробник 401 (прострочений токен): src/tools/api/client.js
 import { setUnauthorizedHandler } from '../tools/api/client';
 
 const TOKEN_KEY = 'token';
@@ -32,12 +28,12 @@ const AuthContext = createContext({
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
-    // true, поки відновлюється збережена сесія
     const [loading, setLoading] = useState(true);
 
-    // Відновлення сесії під час запуску додатка.
-    // Працює й без інтернету: токен і профіль лежать на пристрої
+    // Восстановление сессии при запуске приложения.
     useEffect(() => {
+        let active = true;
+
         const restoreSession = async () => {
             try {
                 const [savedToken, savedUser] = await Promise.all([
@@ -45,42 +41,70 @@ export function AuthProvider({ children }) {
                     AsyncStorage.getItem(USER_KEY),
                 ]);
 
-                if (savedToken && savedUser) {
-                    setToken(savedToken);
-                    setUser(JSON.parse(savedUser));
+                let parsedUser = null;
+
+                if (savedUser) {
+                    try {
+                        parsedUser = JSON.parse(savedUser);
+                    } catch {
+                        parsedUser = null;
+                    }
+                }
+
+                if (active) {
+                    if (savedToken && parsedUser) {
+                        setToken(savedToken);
+                        setUser(parsedUser);
+                    } else {
+                        setToken(null);
+                        setUser(null);
+                    }
                 }
             } catch (error) {
                 console.error('Error restoring session:', error);
             } finally {
-                setLoading(false);
+                if (active) {
+                    setLoading(false);
+                }
             }
         };
 
         restoreSession();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
-    // Токен зберігаємо в захищеному сховищі, профіль в AsyncStorage
-    const saveSession = async (newToken, newUser) => {
+    const saveSession = useCallback(async (newToken, newUser) => {
         await SecureStore.setItemAsync(TOKEN_KEY, newToken);
         await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
+
         setToken(newToken);
         setUser(newUser);
-    };
+    }, []);
 
     const login = useCallback(async (email, password) => {
         const data = await loginRequest(email.trim(), password);
-        await saveSession(data.token, data.user);
-        return data.user;
-    }, []);
 
-    const register = useCallback(async ({ firstName, lastName, email, password }) => {
+        await saveSession(data.token, data.user);
+
+        return data.user;
+    }, [saveSession]);
+
+    const register = useCallback(async ({
+        firstName,
+        lastName,
+        email,
+        password,
+    }) => {
         await registerRequest({
             firstName: firstName.trim(),
             lastName: lastName.trim(),
             email: email.trim(),
             password,
         });
-        // Після реєстрації одразу входимо в акаунт
+
         return login(email, password);
     }, [login]);
 
@@ -96,20 +120,26 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
-    // Якщо сервер відповів 401 на запит з токеном, виходимо з акаунта
     useEffect(() => {
         setUnauthorizedHandler(logout);
     }, [logout]);
 
-    const value = useMemo(
-        () => ({ user, token, loading, login, register, logout }),
-        [user, token, loading, login, register, logout]
-    );
+    const value = useMemo(() => ({
+        user,
+        token,
+        loading,
+        login,
+        register,
+        logout,
+    }), [user, token, loading, login, register, logout]);
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
 }
 
-// Зручний хук: const { user, token, login, logout } = useAuth();
 export const useAuth = () => useContext(AuthContext);
 
 export default AuthContext;

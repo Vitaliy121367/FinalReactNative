@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import CalendarStack from "./CalendarStack";
 import MapScreen from "../screens/MapScreen";
+import AddOffenseScreen from "../screens/AddOffenseScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -27,9 +28,6 @@ function Placeholder({ title }) {
         </View>
     );
 }
-
-// TODO: замінити на ../screens/AddOffenseScreen
-const AddTab = () => <Placeholder title="Нове правопорушення" />;
 
 export default function MainTabs() {
     const { user } = useAuth();
@@ -65,7 +63,7 @@ export default function MainTabs() {
             {user && (
                 <Tab.Screen
                     name="AddTab"
-                    component={AddTab}
+                    component={AddOffenseScreen}
                     options={{
                         title: 'Додати',
                         tabBarIcon: ({ color, size }) => (

@@ -318,7 +318,14 @@ export default function MapScreen({ navigation }) {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.headerRow}>
+            <View style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                width: "100%",
+                marginTop: 15,
+                marginLeft: 15
+            }}>
                 <Header />
                 <NetworkStatus />
             </View>
@@ -452,12 +459,6 @@ export default function MapScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
     },
     mapWrapper: {
         flex: 1,
