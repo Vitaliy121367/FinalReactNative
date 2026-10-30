@@ -2,12 +2,16 @@ import {
     fetchDays,
     fetchOffensesByDate,
     fetchOffenseById,
+    fetchLocations,
+    fetchOffensesByLocation,
     createOffense,
 } from '../api/offenses';
 import {
     getDaysByMonth,
     getOffensesByDate,
     getOffenseById,
+    getLocations,
+    getOffensesByLocation,
     saveOffenses,
     getUnsynced,
     markSynced,
@@ -135,6 +139,62 @@ export const refreshOffense = async (offense) => {
         return fresh;
     } catch (error) {
         return null;
+    }
+};
+
+// Координати округлюємо до 4 знаків, так само як на сервері
+const round4 = (n) => Math.round(Number(n) * 1e4) / 1e4;
+
+// -> { locations: [{ latitude, longitude, count }], offline }
+// Онлайн: точки сервера + ще не відправлені локальні записи.
+// Офлайн: точки з локальної БД (власні записи + кеш сервера)
+export const loadLocations = async () => {
+    try {
+        const server = await fetchLocations();
+
+        const merged = new Map();
+        const add = (lat, lng, count) => {
+            const key = `${round4(lat)},${round4(lng)}`;
+            const item = merged.get(key) || { latitude: round4(lat), longitude: round4(lng), count: 0 };
+            item.count += count;
+            merged.set(key, item);
+        };
+
+        server.forEach((p) => add(p.latitude, p.longitude, p.count));
+
+        const pending = await getUnsynced().catch(() => []);
+        pending
+            .filter((o) => o.latitude != null && o.longitude != null)
+            .forEach((o) => add(o.latitude, o.longitude, 1));
+
+        return { locations: [...merged.values()], offline: false };
+    } catch (error) {
+        if (!isNetworkError(error)) {
+            throw error;
+        }
+        const local = await getLocations().catch(() => []);
+        return { locations: local, offline: true };
+    }
+};
+
+// -> { offenses: [...], offline }  (записи в точці мапи)
+export const loadOffensesByLocation = async (lat, lng) => {
+    const local = await getOffensesByLocation(lat, lng).catch(() => []);
+
+    try {
+        const server = await fetchOffensesByLocation(lat, lng);
+
+        cacheOffenses(server);
+
+        const known = new Set(server.map((o) => o.clientId).filter(Boolean));
+        const pending = local.filter((o) => !o.synced && !known.has(o.clientId));
+
+        return { offenses: [...pending, ...server].sort(byDateDesc), offline: false };
+    } catch (error) {
+        if (!isNetworkError(error)) {
+            throw error;
+        }
+        return { offenses: local, offline: true };
     }
 };
 

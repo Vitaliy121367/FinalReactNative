@@ -21,6 +21,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      ["expo-location", { "locationWhenInUsePermission": "Потрібен доступ до геолокації, щоб показати правопорушення навколо вас" }],
       "expo-secure-store",
       "expo-status-bar",
       "expo-sqlite"

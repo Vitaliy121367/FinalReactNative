@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
 import CalendarStack from "./CalendarStack";
+import MapScreen from "../screens/MapScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -26,9 +27,6 @@ function Placeholder({ title }) {
         </View>
     );
 }
-
-// TODO: замінити на ../screens/MapScreen
-const MapTab = () => <Placeholder title="Мапа" />;
 
 // TODO: замінити на ../screens/AddOffenseScreen
 const AddTab = () => <Placeholder title="Нове правопорушення" />;
@@ -54,7 +52,7 @@ export default function MainTabs() {
 
             <Tab.Screen
                 name="MapTab"
-                component={MapTab}
+                component={MapScreen}
                 options={{
                     title: 'Мапа',
                     tabBarIcon: ({ color, size }) => (
