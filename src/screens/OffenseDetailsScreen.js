@@ -4,11 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
 import AppContext from '../context';
+import { useAuth } from '../context/AuthContext';
 import { getImageSource, isPending } from '../components/OffenseCard';
 import { refreshOffense } from '../tools/api/offensesData';
 
 export default function OffenseDetailsScreen({ route }) {
     const { theme } = useContext(AppContext);
+    const { user } = useAuth();
     const isLight = theme === 'light';
 
     const colors = {
@@ -36,6 +38,14 @@ export default function OffenseDetailsScreen({ route }) {
     const source = getImageSource(offense);
     const hasCoords = offense.latitude != null && offense.longitude != null;
 
+    // Ім'я автора приходить із сервера в полі author («Ім'я Прізвище»).
+    // Для власного запису, ще не відправленого на сервер, береться ім'я поточного користувача
+    const ownName =
+        user && offense.userId === user.id
+            ? `${user.firstName} ${user.lastName}`
+            : null;
+    const authorName = offense.author || ownName;
+
     return (
         <ScrollView style={{ backgroundColor: colors.background }}>
             {source ? (
@@ -57,6 +67,15 @@ export default function OffenseDetailsScreen({ route }) {
                 <Text style={[styles.description, { color: colors.text }]}>
                     {offense.description}
                 </Text>
+
+                {authorName && (
+                    <View style={styles.row}>
+                        <Ionicons name="person-outline" size={18} color={colors.muted} />
+                        <Text style={[styles.meta, { color: colors.muted }]}>
+                            {authorName}
+                        </Text>
+                    </View>
+                )}
 
                 <View style={styles.row}>
                     <Ionicons name="time-outline" size={18} color={colors.muted} />

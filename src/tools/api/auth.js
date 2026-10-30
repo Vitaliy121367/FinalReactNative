@@ -34,3 +34,9 @@ export const fetchMe = (token) =>
             },
         })
         .then(response => response.data);
+
+// GET /auth/users/:id
+export const fetchUserById = (id) =>
+    client
+        .get(`${API_URL}/users/${id}`)
+        .then(response => response.data.user);
