@@ -1,12 +1,9 @@
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Button,
-    KeyboardAvoidingView,
-    Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -17,24 +14,13 @@ import { StatusBar } from 'expo-status-bar';
 import AppContext from '../context';
 import { useAuth } from '../context/AuthContext';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export default function SignUpScreen({ navigation }) {
+export default function SignInScreen({ navigation }) {
     const { theme } = useContext(AppContext);
-    const { register } = useAuth();
+    const { login } = useAuth();
 
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [submitting, setSubmitting] = useState(false);
-
-    // Посилання на поля, щоб кнопка «Далі» на клавіатурі переходила до наступного
-    const lastNameRef = useRef(null);
-    const emailRef = useRef(null);
-    const passwordRef = useRef(null);
-    const confirmRef = useRef(null);
 
     const isLight = theme === 'light';
 
@@ -46,162 +32,93 @@ export default function SignUpScreen({ navigation }) {
         link: isLight ? '#2196F3' : '#b388f5',
     };
 
-    const inputStyle = [
-        styles.input,
-        {
-            color: colors.text,
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-        },
-    ];
-
-    // Повертає текст помилки або null, якщо дані коректні.
-    // Правила збігаються з перевірками на сервері
-    const validate = () => {
-        if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
-            return 'Заповніть усі поля';
-        }
-        if (!EMAIL_REGEX.test(email.trim())) {
-            return 'Некоректний email';
-        }
-        if (password.length < 6) {
-            return 'Пароль має містити щонайменше 6 символів';
-        }
-        if (password !== confirmPassword) {
-            return 'Паролі не збігаються';
-        }
-        return null;
-    };
-
-    const handleRegister = async () => {
+    const handleLogin = async () => {
         // Захист від повторного натискання
         if (submitting) {
             return;
         }
 
-        const validationError = validate();
-        if (validationError) {
-            Alert.alert('Помилка', validationError);
+        if (!email.trim() || !password) {
+            Alert.alert('Помилка', 'Введіть email та пароль');
             return;
         }
 
         setSubmitting(true);
 
         try {
-            // register() реєструє користувача і одразу виконує вхід.
-            // Після цього екран зникає (він показується лише гостям),
-            // тож явна навігація не потрібна
-            await register({ firstName, lastName, email, password });
+            await login(email, password);
+            // Навігація не потрібна: після входу екран SignIn зникає
+            // (він показується лише гостям), і Drawer відкриває Main
         } catch (error) {
             Alert.alert(
-                'Помилка реєстрації',
-                error.message || 'Не вдалося зареєструватися. Перевірте інтернет'
+                'Помилка входу',
+                error.message || 'Не вдалося увійти. Перевірте дані та інтернет'
             );
             setSubmitting(false);
         }
     };
 
     return (
-        <KeyboardAvoidingView
-            style={{ flex: 1, backgroundColor: colors.background }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-            <ScrollView
-                contentContainerStyle={styles.container}
-                keyboardShouldPersistTaps="handled"
-            >
-                <Text style={[styles.title, { color: colors.text }]}>Реєстрація</Text>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <Text style={[styles.title, { color: colors.text }]}>Вхід</Text>
 
-                <TextInput
-                    style={inputStyle}
-                    placeholder="Ім'я"
-                    placeholderTextColor="#888"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                    onSubmitEditing={() => lastNameRef.current?.focus()}
-                />
+            <TextInput
+                style={[
+                    styles.input,
+                    {
+                        color: colors.text,
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                    },
+                ]}
+                placeholder="Email"
+                placeholderTextColor="#888"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
 
-                <TextInput
-                    ref={lastNameRef}
-                    style={inputStyle}
-                    placeholder="Прізвище"
-                    placeholderTextColor="#888"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                    onSubmitEditing={() => emailRef.current?.focus()}
-                />
+            <TextInput
+                style={[
+                    styles.input,
+                    {
+                        color: colors.text,
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                    },
+                ]}
+                placeholder="Пароль"
+                placeholderTextColor="#888"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+            />
 
-                <TextInput
-                    ref={emailRef}
-                    style={inputStyle}
-                    placeholder="Email"
-                    placeholderTextColor="#888"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                />
+            <View style={styles.buttonWrapper}>
+                {submitting ? (
+                    <ActivityIndicator size="small" color={colors.button} />
+                ) : (
+                    <Button title="Увійти" color={colors.button} onPress={handleLogin} />
+                )}
+            </View>
 
-                <TextInput
-                    ref={passwordRef}
-                    style={inputStyle}
-                    placeholder="Пароль (мінімум 6 символів)"
-                    placeholderTextColor="#888"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    returnKeyType="next"
-                    onSubmitEditing={() => confirmRef.current?.focus()}
-                />
+            <Pressable onPress={() => navigation.navigate('SignUp')}>
+                <Text style={[styles.link, { color: colors.link }]}>
+                    Немає акаунта? Зареєструватися
+                </Text>
+            </Pressable>
 
-                <TextInput
-                    ref={confirmRef}
-                    style={inputStyle}
-                    placeholder="Повторіть пароль"
-                    placeholderTextColor="#888"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={handleRegister}
-                />
-
-                <View style={styles.buttonWrapper}>
-                    {submitting ? (
-                        <ActivityIndicator size="small" color={colors.button} />
-                    ) : (
-                        <Button
-                            title="Зареєструватися"
-                            color={colors.button}
-                            onPress={handleRegister}
-                        />
-                    )}
-                </View>
-
-                <Pressable onPress={() => navigation.navigate('SignIn')}>
-                    <Text style={[styles.link, { color: colors.link }]}>
-                        Вже є акаунт? Увійти
-                    </Text>
-                </Pressable>
-
-                <StatusBar style="auto" />
-            </ScrollView>
-        </KeyboardAvoidingView>
+            <StatusBar style="auto" />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flexGrow: 1,
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         padding: 20,
