@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.0.106:3000/auth';
+const API_URL = 'http://192.168.0.106:3000';
 
 const client = axios.create({
     baseURL: API_URL,
@@ -25,25 +25,45 @@ export const authHeader = (token) =>
 //   error.isNetworkError — true, якщо немає зв'язку або вичерпано таймаут
 client.interceptors.response.use(
     (response) => response,
+
     (error) => {
         const status = error.response?.status;
-        const isNetworkError = !error.response;
 
-        // 401 вважаємо «токен прострочено» лише якщо запит ішов з токеном.
-        // Інакше це просто невірний пароль при вході
-        const sentToken = Boolean(error.config?.headers?.Authorization);
-        if (status === 401 && sentToken && unauthorizedHandler) {
+        const isNetworkError =
+            !error.response &&
+            (
+                error.code === 'ERR_NETWORK' ||
+                error.code === 'ECONNABORTED' ||
+                error.code === 'ETIMEDOUT' ||
+                error.code === 'ECONNREFUSED' ||
+                error.code === 'ENOTFOUND'
+            );
+
+        const sentToken = Boolean(
+            error.config?.headers?.Authorization
+        );
+
+        if (
+            status === 401 &&
+            sentToken &&
+            unauthorizedHandler
+        ) {
             unauthorizedHandler();
         }
 
         let message;
+
         if (isNetworkError) {
-            message = "Немає з'єднання з сервером. Перевірте інтернет";
+            message = 'Нет подключения к серверу';
         } else {
-            message = error.response.data?.error || 'Помилка сервера';
+            message =
+                error.response?.data?.error ||
+                error.message ||
+                'Ошибка сервера';
         }
 
         const apiError = new Error(message);
+
         apiError.status = status;
         apiError.isNetworkError = isNetworkError;
 

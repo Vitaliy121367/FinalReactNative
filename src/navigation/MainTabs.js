@@ -5,6 +5,7 @@ import { useTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
+import CalendarStack from "./CalendarStack";
 
 const Tab = createBottomTabNavigator();
 
@@ -26,9 +27,6 @@ function Placeholder({ title }) {
     );
 }
 
-// TODO: замінити на ./CalendarStack (Calendar → DayOffenses → OffenseDetails)
-const CalendarTab = () => <Placeholder title="Календар" />;
-
 // TODO: замінити на ../screens/MapScreen
 const MapTab = () => <Placeholder title="Мапа" />;
 
@@ -45,7 +43,7 @@ export default function MainTabs() {
         >
             <Tab.Screen
                 name="CalendarTab"
-                component={CalendarTab}
+                component={CalendarStack}
                 options={{
                     title: 'Календар',
                     tabBarIcon: ({ color, size }) => (
