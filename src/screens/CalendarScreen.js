@@ -8,6 +8,7 @@ import { loadDays } from '../tools/api/offensesData';
 import { useNetwork } from '../context/NetworkContext';
 import Header from '../components/Header';
 import NetworkStatus from '../components/OfflineBanner';
+import {clearLocalData} from "../tools/database/database";
 
 const MONTHS = [
     'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
@@ -154,7 +155,6 @@ export default function CalendarScreen({ navigation }) {
                             <Pressable
                                 key={dayIndex}
                                 style={styles.cell}
-                                disabled={!marked}
                                 onPress={() => navigation.navigate('DayOffenses', { date: dateStr })}
                             >
                                 <View
@@ -235,7 +235,6 @@ const styles = StyleSheet.create({
     dayCircle: {
         width: '80%',
         aspectRatio: 1,
-        borderRadius: 999,
         alignItems: 'center',
         justifyContent: 'center',
     },

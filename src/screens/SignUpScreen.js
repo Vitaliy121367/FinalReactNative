@@ -4,7 +4,6 @@ import {
     Alert,
     Button,
     KeyboardAvoidingView,
-    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -13,6 +12,7 @@ import {
     View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useHeaderHeight } from '@react-navigation/elements';
 
 import AppContext from '../context';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +22,9 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function SignUpScreen({ navigation }) {
     const { theme } = useContext(AppContext);
     const { register } = useAuth();
+
+    // Висота заголовка Drawer: без цього відступ над клавіатурою рахується неточно
+    const headerHeight = useHeaderHeight();
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -104,7 +107,10 @@ export default function SignUpScreen({ navigation }) {
     return (
         <KeyboardAvoidingView
             style={{ flex: 1, backgroundColor: colors.background }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            // 'padding' потрібен і на Android: у режимі edge-to-edge вікно
+            // не стискається саме, тож клавіатура перекриває поля
+            behavior="padding"
+            keyboardVerticalOffset={headerHeight}
         >
             <ScrollView
                 contentContainerStyle={styles.container}

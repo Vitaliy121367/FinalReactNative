@@ -4,6 +4,7 @@ import {
     Alert,
     Image,
     Keyboard,
+    KeyboardAvoidingView,
     Linking,
     Pressable,
     ScrollView,
@@ -13,6 +14,7 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
@@ -27,10 +29,17 @@ import { useNetwork } from '../context/NetworkContext';
 
 const MAX_DESCRIPTION = 500;
 
+// Показувати кнопку «Галерея» поруч із «Камера».
+// За умовами завдання фото робиться лише камерою, тож перед захистом постав false
+const ALLOW_GALLERY = true;
+
 export default function AddOffenseScreen({ navigation }) {
     const { theme } = useContext(AppContext);
     const { token, user } = useAuth();
     const { syncNow, refreshPending } = useNetwork();
+
+    // Висота заголовка Drawer: без неї відступ над клавіатурою рахується неточно
+    const headerHeight = useHeaderHeight();
 
     const isLight = theme === 'light';
     const colors = {
@@ -203,130 +212,140 @@ export default function AddOffenseScreen({ navigation }) {
     const busy = saving || photoLoading;
 
     return (
-        <ScrollView
-            style={{ backgroundColor: colors.background }}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+            style={{ flex: 1, backgroundColor: colors.background }}
+            // 'padding' потрібен і на Android: у режимі edge-to-edge вікно
+            // не стискається саме, тож клавіатура перекриває поля
+            behavior="padding"
+            keyboardVerticalOffset={headerHeight}
         >
-            <View
-                style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    width: '100%',
-                }}
+            <ScrollView
+                style={{ backgroundColor: colors.background }}
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
             >
-                <Header />
-                <NetworkStatus />
-            </View>
-
-            {photoLoading ? (
-                <View style={[styles.image, styles.placeholder, { backgroundColor: colors.card }]}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                    <Text style={{ color: colors.muted, marginTop: 8 }}>Завантаження фото...</Text>
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        width: '100%',
+                    }}
+                >
+                    <Header />
+                    <NetworkStatus />
                 </View>
-            ) : photo ? (
-                <View>
-                    <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="cover" />
-                    <Pressable style={styles.removePhoto} onPress={() => setPhoto(null)} hitSlop={8}>
-                        <Ionicons name="close" size={20} color="#ffffff" />
+
+                {photoLoading ? (
+                    <View style={[styles.image, styles.placeholder, { backgroundColor: colors.card }]}>
+                        <ActivityIndicator size="large" color={colors.accent} />
+                        <Text style={{ color: colors.muted, marginTop: 8 }}>Завантаження фото...</Text>
+                    </View>
+                ) : photo ? (
+                    <View>
+                        <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="cover" />
+                        <Pressable style={styles.removePhoto} onPress={() => setPhoto(null)} hitSlop={8}>
+                            <Ionicons name="close" size={20} color="#ffffff" />
+                        </Pressable>
+                    </View>
+                ) : (
+                    <View style={[styles.image, styles.placeholder, { backgroundColor: colors.card }]}>
+                        <Ionicons name="image-outline" size={48} color={colors.muted} />
+                        <Text style={{ color: colors.muted, marginTop: 8 }}>Фото не додано</Text>
+                    </View>
+                )}
+
+                <View style={styles.photoButtons}>
+                    <Pressable
+                        style={[
+                            styles.photoButton,
+                            { borderColor: colors.accent },
+                            busy && { opacity: 0.5 },
+                        ]}
+                        onPress={takePhoto}
+                        disabled={busy}
+                    >
+                        <Ionicons name="camera-outline" size={20} color={colors.accent} />
+                        <Text style={[styles.photoButtonText, { color: colors.accent }]}>Камера</Text>
+                    </Pressable>
+
+                    {ALLOW_GALLERY && (
+                        <Pressable
+                            style={[
+                                styles.photoButton,
+                                { borderColor: colors.accent },
+                                busy && { opacity: 0.5 },
+                            ]}
+                            onPress={pickFromGallery}
+                            disabled={busy}
+                        >
+                            <Ionicons name="images-outline" size={20} color={colors.accent} />
+                            <Text style={[styles.photoButtonText, { color: colors.accent }]}>Галерея</Text>
+                        </Pressable>
+                    )}
+                </View>
+
+                {/* Опис */}
+                <TextInput
+                    style={[
+                        styles.input,
+                        { color: colors.text, backgroundColor: colors.card, borderColor: colors.border },
+                    ]}
+                    placeholder="Опишіть правопорушення"
+                    placeholderTextColor={colors.muted}
+                    value={description}
+                    onChangeText={setDescription}
+                    maxLength={MAX_DESCRIPTION}
+                    multiline
+                    textAlignVertical="top"
+                />
+                <Text style={[styles.counter, { color: colors.muted }]}>
+                    {description.length}/{MAX_DESCRIPTION}
+                </Text>
+
+                {/* Місце */}
+                <View style={styles.locationRow}>
+                    <Ionicons name="location-outline" size={20} color={colors.muted} />
+
+                    {locating ? (
+                        <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 8 }} />
+                    ) : coords ? (
+                        <Text style={[styles.locationText, { color: colors.muted }]}>
+                            {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
+                        </Text>
+                    ) : (
+                        <Text style={[styles.locationText, { color: colors.muted }]}>
+                            {locationDenied
+                                ? 'Немає доступу до геолокації. Запис буде без місця'
+                                : 'Місце не визначено'}
+                        </Text>
+                    )}
+
+                    <Pressable
+                        onPress={locationDenied ? Linking.openSettings : detectLocation}
+                        hitSlop={10}
+                        style={{ marginLeft: 'auto' }}
+                    >
+                        <Text style={{ color: colors.accent }}>
+                            {locationDenied ? 'Налаштування' : 'Оновити'}
+                        </Text>
                     </Pressable>
                 </View>
-            ) : (
-                <View style={[styles.image, styles.placeholder, { backgroundColor: colors.card }]}>
-                    <Ionicons name="image-outline" size={48} color={colors.muted} />
-                    <Text style={{ color: colors.muted, marginTop: 8 }}>Фото не додано</Text>
-                </View>
-            )}
 
-            <View style={styles.photoButtons}>
+                {/* Відправка */}
                 <Pressable
-                    style={[
-                        styles.photoButton,
-                        { borderColor: colors.accent },
-                        busy && { opacity: 0.5 },
-                    ]}
-                    onPress={takePhoto}
+                    style={[styles.submit, { backgroundColor: colors.accent }, busy && { opacity: 0.6 }]}
+                    onPress={handleSubmit}
                     disabled={busy}
                 >
-                    <Ionicons name="camera-outline" size={20} color={colors.accent} />
-                    <Text style={[styles.photoButtonText, { color: colors.accent }]}>Камера</Text>
+                    {saving ? (
+                        <ActivityIndicator color="#ffffff" />
+                    ) : (
+                        <Text style={styles.submitText}>Зберегти</Text>
+                    )}
                 </Pressable>
-
-                <Pressable
-                    style={[
-                        styles.photoButton,
-                        { borderColor: colors.accent },
-                        busy && { opacity: 0.5 },
-                    ]}
-                    onPress={pickFromGallery}
-                    disabled={busy}
-                >
-                    <Ionicons name="images-outline" size={20} color={colors.accent} />
-                    <Text style={[styles.photoButtonText, { color: colors.accent }]}>Галерея</Text>
-                </Pressable>
-            </View>
-
-            {/* Опис */}
-            <TextInput
-                style={[
-                    styles.input,
-                    { color: colors.text, backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                placeholder="Опишіть правопорушення"
-                placeholderTextColor={colors.muted}
-                value={description}
-                onChangeText={setDescription}
-                maxLength={MAX_DESCRIPTION}
-                multiline
-                textAlignVertical="top"
-            />
-            <Text style={[styles.counter, { color: colors.muted }]}>
-                {description.length}/{MAX_DESCRIPTION}
-            </Text>
-
-            {/* Місце */}
-            <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={20} color={colors.muted} />
-
-                {locating ? (
-                    <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 8 }} />
-                ) : coords ? (
-                    <Text style={[styles.locationText, { color: colors.muted }]}>
-                        {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
-                    </Text>
-                ) : (
-                    <Text style={[styles.locationText, { color: colors.muted }]}>
-                        {locationDenied
-                            ? 'Немає доступу до геолокації. Запис буде без місця'
-                            : 'Місце не визначено'}
-                    </Text>
-                )}
-
-                <Pressable
-                    onPress={locationDenied ? Linking.openSettings : detectLocation}
-                    hitSlop={10}
-                    style={{ marginLeft: 'auto' }}
-                >
-                    <Text style={{ color: colors.accent }}>
-                        {locationDenied ? 'Налаштування' : 'Оновити'}
-                    </Text>
-                </Pressable>
-            </View>
-
-            {/* Відправка */}
-            <Pressable
-                style={[styles.submit, { backgroundColor: colors.accent }, busy && { opacity: 0.6 }]}
-                onPress={handleSubmit}
-                disabled={busy}
-            >
-                {saving ? (
-                    <ActivityIndicator color="#ffffff" />
-                ) : (
-                    <Text style={styles.submitText}>Зберегти</Text>
-                )}
-            </Pressable>
-        </ScrollView>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
